@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container page mb-4" id="page1">
+    <div class="p-3 pb-md-4 mx-auto">
+        <h1 class="mt-5">Upload your files</h1>
+        <p class="lead">To use the elo ranker for each paper you want to compare upload an excel table with the different algorithms as rows and the different performacne measures given by the paper as columns. An example for such a paper can be found here: <a href="{{ url_for('static', filename='content/ExampleTable.xlsx') }}">ExampleTable.xlsx</a><br><br> After that you will be able to decide which metric you want the ranking system to consider in every table and you can indicate how confident you are in the paper and how close your use case is to the one described in it (use case confidence).</p>
+    </div>
+
+    <div class="alert alert-danger" role="alert" style="display: none">
+        Generic alert.
+    </div>
+
+    <div class="row row-cols-1 row-cols-md-3 row-cols-lg-5 mb-3 text-center">
+        {% for file in userfilestorage %}
+        <div class="col py-2">
+            <div class="card file-card h-100" data-file= "{{file.json}}" data-id= "{{file.bucket_file_name}}">
+                <div class="card-body">
+                    <h5 class="card-title">{{ file.file_name }}</h5>
+                </div>
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item">
+                        <div class="btn-dropdown">
+                            <button type="button" class="btn btn-secondary btn-sm dropdown-toggle btn-selected_metric" data-bs-toggle="dropdown" aria-expanded="false">
+                                {% if file.selected_metric == "" %}
+                                    Select Metric
+                                {% else %}
+                                    {{ file.selected_metric }}
+                                {% endif %}
+                            </button>
+                            <ul class="dropdown-menu dropdown-selected_metric">
+                                {% for metric in file.metrics %}
+                                <li><a class="dropdown-item" data-id="selected_metric" data-value="{{ metric }}" href="#">{{ metric }}</a></li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </li>
+                    <li class="list-group-item">
+                        <div class="btn-dropdown">
+                            <button type="button" class="btn btn-secondary btn-sm dropdown-toggle btn-paper_confidence" data-bs-toggle="dropdown" aria-expanded="false">
+                                {% if file.paper_confidence != "" %}
+                                    {{ file.paper_confidence }}
+                                {% else %}
+                                    Paper Conf.
+                                {% endif %}
+                            </button>
+                            <ul class="dropdown-menu dropdown-paper_confidence">
+                                <li><a class="dropdown-item" data-id="paper_confidence" data-value="High" href="#">High</a></li>
+                                <li><a class="dropdown-item" data-id="paper_confidence" data-value="Medium" href="#">Medium</a></li>
+                                <li><a class="dropdown-item" data-id="paper_confidence" data-value="Low" href="#">Low</a></li>
+                            </ul>
+                        </div>
+                    </li>
+                    <li class="list-group-item">
+                        <div class="btn-dropdown">
+                            <button type="button" class="btn btn-secondary btn-sm dropdown-toggle btn-usecase_confidence" data-bs-toggle="dropdown" aria-expanded="false">
+                                {% if file.usecase_confidence != "" %}
+                                    {{ file.usecase_confidence }}
+                                {% else %}
+                                    Use Case Conf.
+                                {% endif %}
+                            </button>
+                            <ul class="dropdown-menu dropdown-usecase_confidence">
+                                <li><a class="dropdown-item" data-id="usecase_confidence" data-value="High" href="#">High</a></li>
+                                <li><a class="dropdown-item" data-id="usecase_confidence" data-value="Medium" href="#">Medium</a></li>
+                                <li><a class="dropdown-item" data-id="usecase_confidence" data-value="Low" href="#">Low</a></li>
+                            </ul>
+                        </div>
+                    </li>
+                </ul>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-danger btn-sm btn-delete" type="button">Remove</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+        <div class="col py-2">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Upload New Performance Table/s</h5>
+                    <p class="card-text">Click here to upload one or more performance tables as .xlsx files.</p>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-dark " type="button"  data-bs-toggle="modal" data-bs-target="#uploadModal">Upload</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-grid gap-2 py-3">
+        <button type="button" class="btn btn-primary btn-calculate btn-lg">Calculate</button>
+    </div>
+</div>
+
+<div class="container page" id="page2" style="display: none">
+    <h1 class="mt-5">Ranking your Algorithm</h1>
+    <p class="lead">Currently Algelo is comapring your algorithms with each other to judge their relative performance under incomplete information. Wait a second, we will be ready soon ...</p>
+    <div class="d-grid gap-2 py-3">
+        <button class="btn btn-primary btn-lg" type="button" disabled>
+            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Making an algorithm tournament ...
+        </button>
+    </div>
+</div>
+
+<div class="container page" id="page3" style="display: none">
+    <h1 class="mt-5">Elo Ranking</h1>
+    <p class="lead">In the table below you find the ranking of all the algorithms you submited to Algelo. We hope, this helps you with your further research. If you want to have further information about AlgElo, please read our <a href="#" target="_blank" disabled>Paper</a> and if your interested in our implementation please visit our <a href="https://github.com/Faruman/algelo" target="_blank">GitHub</a></p>
+    <div id="result"></div>
+    <div class="container py-3">
+        <div class="row">
+            <div class="col-auto nopadding"><button type="button" class="btn btn-outline-primary btn-back" onClick="window.location.reload()">Back</button></div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="uploadModal" tabindex="-1" aria-labelledby="uploadModal" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" enctype="multipart/form-data">
+                <div class="modal-header">
+                    <h5 class="modal-title">Upload New Performance Table/s</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="text-center d-none">
+                        <div class="spinner-border" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="formFileMultiple" class="form-label">Select one or multiple performance tables you would like to upload:</label>
+                        <input class="form-control" type="file" id="formFileMultiple" name="formFileMultiple" accept=".xlsx,.xls" multiple>
+                        <div class="invalid-feedback">You must select at least one performance table to upload.</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="submit" class="btn btn-primary btn-upload">Upload</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+{% endblock %}
+
+{%- block styles %}
+{{ super() }}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+{%- endblock %}
+
+

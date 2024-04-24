@@ -13,16 +13,43 @@
             {{ bootstrap.load_css() }}
         {% endblock %}
 
-        <title>Algelo - The algorithm ranker</title>
+        <title>AlgElo - the last (algorithm) judgment</title>
         {% endblock %}
     </head>
-    <body>
+    <body class="d-flex flex-column min-vh-100">
+        <!-- Navigation-->
+        <nav class="navbar navbar-expand-lg navbar-light bg-light">
+            <div class="container-fluid px-4">
+                <p class="navbar-brand text-nowrap"><span class="text">AlgElo</span>&nbsp;<span class="text fw-light d-none d-sm-block fs-6 fw-lighter">- the last (algorithm) judgment</span></p>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="navbarNav">
+                    <ul class="navbar-nav">
+                        <li class="nav-item">
+                            <a class="nav-link disabled" href="#" target="_blank">Paper</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="https://github.com/Faruman/algelo" target="_blank">Github</a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </nav>
         <!-- Your page content -->
-        {% block content %}{% endblock %}
-
+        <main class="px-4">
+            {% block content %}{% endblock %}
+        </main>
+         <!-- Footer-->
+        <footer class="bg-light py-5 mt-auto">
+            <div class="container px-4 px-lg-5"><div class="small text-center text-muted">Copyright &copy; 2024 - Fabian Karst</div></div>
+        </footer>
         {% block scripts %}
             <!-- Optional JavaScript -->
             {{ bootstrap.load_js() }}
+            <!-- add JQuerry -->
+            <script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+            <script>window.jQuery || document.write('<script src="{{url_for('static', filename='jquery.js') }}">\x3C/script>')</script>
         {% endblock %}
     </body>
 </html>

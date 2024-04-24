@@ -1,0 +1,15 @@
+.nopadding {
+   padding: 0 !important;
+}
+.upload-btn-group.btn-danger{
+   width: 5%;
+}
+.upload-btn-group.btn-dropdown{
+   width: 15%;
+}
+.tooltip {
+    display:inline-block;
+    position:relative;
+    border-bottom:1px dotted #666;
+    text-align:left;
+}
