@@ -24,9 +24,8 @@ with open('creds.json') as f:
     creds = json.load(f)
 app.secret_key = creds["secret_key"]
 
-# set gcloud environment variable if local
-if os.path.exists("google-creds.json"):
-    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "google-creds.json"
+# set gcloud environment variable
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "google-creds.json"
 
 storage_client = storage.Client()
 

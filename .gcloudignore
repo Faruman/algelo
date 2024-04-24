@@ -23,4 +23,3 @@ __pycache__/
 
 # exclude experiments which are not needed for the webapp
 experiments/
-google-creds.json
