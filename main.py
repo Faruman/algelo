@@ -44,9 +44,9 @@ def initTempBucket(bucket, days= 3):
 @app.before_request
 def before_request():
     session.permanent = True
-    session["id"] = "3c8a04328c21472ab8ca97407c99f2fd"
-    #if "id" not in session:
-    #    session["id"] = uuid.uuid4().hex
+    #session["id"] = "3c8a04328c21472ab8ca97407c99f2fd"
+    if "id" not in session:
+        session["id"] = uuid.uuid4().hex
 
 @app.route("/", methods= ["GET"])
 def index():
@@ -57,9 +57,9 @@ def applet():
     bucket = storage_client.bucket(session["id"])
     initTempBucket(bucket)
     if request.files:
-        for file in request.files.items():
-            file_name = file[1].filename
-            file_content = file[1].stream.read()
+        for file in request.files.getlist('formFileMultiple'):
+            file_name = file.filename
+            file_content = file.stream.read()
             bucket_file_name = uuid.uuid4().hex + "_" + file_name
             blob = bucket.blob(bucket_file_name)
             df = pd.read_excel(io.BytesIO(file_content))
@@ -155,7 +155,6 @@ def calculateElo():
         blob.upload_from_filename(temp_xlsx)
         file_url = blob.generate_signed_url(datetime.timedelta(seconds= 600), method= "GET")
         os.remove(temp_xlsx)
-
         return render_template("results.html", results= ranking, ranking_file= file_url, failed_files= failed_files)
     else:
         abort(422)

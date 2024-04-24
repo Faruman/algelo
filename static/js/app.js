@@ -60,3 +60,8 @@ $(".btn-calculate").on( "click", function(e) {
       alert( "Something went wrong, please try again." );
     })
 });
+
+$("#page3 .btn-back").on( "click", function(e) {
+    $(".page").hide();
+    $("#page1").show();
+});

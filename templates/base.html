@@ -20,7 +20,7 @@
         <!-- Navigation-->
         <nav class="navbar navbar-expand-lg navbar-light bg-light">
             <div class="container-fluid px-4">
-                <p class="navbar-brand text-nowrap"><span class="text">AlgElo</span>&nbsp;<span class="text fw-light d-none d-sm-block fs-6 fw-lighter">- the last (algorithm) judgment</span></p>
+                <p class="navbar-brand text-nowrap">AlgElo</p>
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"></span>
                 </button>
@@ -45,11 +45,11 @@
             <div class="container px-4 px-lg-5"><div class="small text-center text-muted">Copyright &copy; 2024 - Fabian Karst</div></div>
         </footer>
         {% block scripts %}
-            <!-- Optional JavaScript -->
-            {{ bootstrap.load_js() }}
             <!-- add JQuerry -->
             <script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
             <script>window.jQuery || document.write('<script src="{{url_for('static', filename='jquery.js') }}">\x3C/script>')</script>
+            <!-- Optional JavaScript -->
+            {{ bootstrap.load_js() }}
         {% endblock %}
     </body>
 </html>
