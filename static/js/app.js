@@ -31,17 +31,17 @@ $(".btn-calculate").on( "click", function(e) {
     e.preventDefault();
     var file_cards = $(".file-card");
     if (file_cards.length < 2) {
-        $(".page1-alert").text("Please upload at least two performance tables to create a joint rating.").show();
+        $(".page-alert").text("Please upload at least two performance tables to create a joint rating.").show();
         return;
     } else {
-        $(".page1-alert").hide();
+        $(".page-alert").hide();
     }
 
     if ($(".file-card .btn-selected_metric").text().includes("Select")) {
-        $(".page1-alert").text("Please select a metric for each performance table.").show();
+        $(".page-alert").text("Please select a metric for each performance table.").show();
         return;
     } else {
-        $(".page1-alert").hide();
+        $(".page-alert").hide();
     }
 
     $(".page").hide();

@@ -18,7 +18,7 @@ from sitepackages.eloRating import EloSystem
 #setup the app
 app = Flask(__name__)
 bootstrap = Bootstrap5(app)
-#sslify = SSLify(app)
+sslify = SSLify(app)
 
 with open('creds.json') as f:
     creds = json.load(f)
@@ -44,7 +44,6 @@ def initTempBucket(bucket, days= 3):
 @app.before_request
 def before_request():
     session.permanent = True
-    #session["id"] = "3c8a04328c21472ab8ca97407c99f2fd"
     if "id" not in session:
         session["id"] = uuid.uuid4().hex
 
