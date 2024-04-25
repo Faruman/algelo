@@ -1,4 +1,5 @@
 import os
+import copy
 import math
 from pathlib import Path
 import random
@@ -16,6 +17,8 @@ from tqdm import trange
 random.seed(24)
 datasets = ["./data/eccd/eccd.pkl", "./data/wdbc/wdbc.pkl"]
 
+def flatten(xss):
+    return [x for xs in xss for x in xs]
 
 # define models
 from sklearn.linear_model import LogisticRegression, Lasso
@@ -33,7 +36,8 @@ models = {"lr" : LogisticRegression(),
           "dt": DecisionTreeClassifier(),
           "rf": RandomForestClassifier(),
           "adab": AdaBoostClassifier(),
-          "mlp": MLPClassifier()}
+          "mlp": MLPClassifier()
+          }
 
 
 # define metrics
@@ -94,20 +98,27 @@ from imblearn.over_sampling import SMOTE
 from imblearn.under_sampling import RandomUnderSampler
 from imblearn.over_sampling import RandomOverSampler
 
-resampling = {"smote": SMOTE(sampling_strategy= 0.1),
-              "outlier removal iqr": FunctionSampler(func=CustomSampler_IQR, validate = False),
-              "random under sampling": RandomUnderSampler(sampling_strategy= 0.1),
-              "random over sampling": RandomOverSampler(sampling_strategy= 0.1)
+resampling = {"wdbc": {"smote": SMOTE(sampling_strategy=0.5),
+                  "outlier removal iqr": FunctionSampler(func=CustomSampler_IQR, validate = False),
+                  "random under sampling": RandomUnderSampler(sampling_strategy=0.5),
+                  "random over sampling": RandomOverSampler(sampling_strategy=0.5)
+                  },
+              "eccd":{"smote": SMOTE(sampling_strategy=0.1),
+                  "outlier removal iqr": FunctionSampler(func=CustomSampler_IQR, validate = False),
+                  "random under sampling": RandomUnderSampler(sampling_strategy=0.9),
+                  "random over sampling": RandomOverSampler(sampling_strategy=0.1)
+                  }
               }
 
 
 
-for i in trange(0, 50, desc= "Simulating Papers"):
+for i in trange(0, 80, desc= "Simulating Papers"):
     if not os.path.exists(f"./output/papers/researcher_{i}.json"):
         run_models = [list(models.keys())[i] for i in random.sample(range(0, len(models.keys())), random.randint(1, 5))]
         run_metrics = [list(metrics.keys())[i] for i in random.sample(range(0, len(metrics.keys())), random.randint(1, 4))]
         run_preprocessing = [list(preprocessing.keys())[i] for i in random.sample(range(0, len(preprocessing.keys())), math.ceil((random.randint(0, 4)/4)))]
-        run_resampling = [list(resampling.keys())[i] for i in random.sample(range(0, len(resampling.keys())), math.ceil((random.randint(0, 4)/4)))]
+        resampling_list = list(set(flatten([[key2 for key2 in resampling[key1].keys()] for key1 in resampling.keys()])))
+        run_resampling = [resampling_list[i] for i in random.sample(range(0, len(resampling_list)), math.ceil((random.randint(0, 4)/4)))]
 
         results_dict = {"config": {"models": run_models, "metrics": run_metrics, "preprocessing": run_preprocessing, "resampling": run_resampling}, "results": {}}
 
@@ -117,12 +128,14 @@ for i in trange(0, 50, desc= "Simulating Papers"):
             df = pd.read_pickle(dataset)
 
             # allow variation in datasets
-            sample_size = random.randint(50, 100)/100
-            df = df.sample(frac=sample_size).reset_index(drop=True)
+            sample_size = random.randint(40, 80)/100
+            sample = pd.DataFrame(columns=["Target"])
+            while sample["Target"].nunique() < 2:
+                sample = df.sample(frac=sample_size, random_state=random.randint(0, 10000000)).reset_index(drop=True)
             print("Sample size: ", sample_size)
 
-            X = df.drop(columns=["Target"]).values
-            y = df["Target"].values
+            X = sample.drop(columns=["Target"]).values
+            y = sample["Target"].values
 
             # allow for different preprocessing steps
             for run_preprocess in run_preprocessing:
@@ -134,10 +147,18 @@ for i in trange(0, 50, desc= "Simulating Papers"):
 
             train_X, test_X, train_y, test_y = train_test_split(X, y, test_size=random.randint(10, 50)/100, random_state=42)
 
+            if not sum(train_y) > 0:
+                print("No positive class in training data")
+                continue
+
             # allow for different resampling steps
             for run_resample in run_resampling:
                 print("Resampling: ", run_resample)
-                train_X, train_y = resampling[run_resample].fit_resample(train_X, train_y)
+                if run_resample != "outlier removal iqr":
+                    if train_y.sum() / (len(train_y) - train_y.sum()) < resampling[Path(dataset).stem][run_resample].sampling_strategy:
+                        train_X, train_y = resampling[Path(dataset).stem][run_resample].fit_resample(train_X, train_y)
+                else:
+                    train_X, train_y = resampling[Path(dataset).stem][run_resample].fit_resample(train_X, train_y)
 
             # allow for different models and metrics
             for run_model in run_models:

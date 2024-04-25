@@ -1,4 +1,5 @@
 import os.path
+import copy
 from pathlib import Path
 import random
 
@@ -14,6 +15,8 @@ from tqdm import tqdm
 random.seed(24)
 datasets = ["./data/eccd/eccd.pkl", "./data/wdbc/wdbc.pkl"]
 
+def flatten(xss):
+    return [x for xs in xss for x in xs]
 
 # define models
 from sklearn.linear_model import LogisticRegression, Lasso
@@ -92,26 +95,36 @@ from imblearn.over_sampling import SMOTE
 from imblearn.under_sampling import RandomUnderSampler
 from imblearn.over_sampling import RandomOverSampler
 
-resampling = {"smote": SMOTE(sampling_strategy= 0.1),
-              "outlier removal iqr": FunctionSampler(func=CustomSampler_IQR, validate = False),
-              "random under sampling": RandomUnderSampler(sampling_strategy= 0.1),
-              "random over sampling": RandomOverSampler(sampling_strategy= 0.1)
+resampling = {"wdbc": {"smote": SMOTE(sampling_strategy=0.5),
+                  "outlier removal iqr": FunctionSampler(func=CustomSampler_IQR, validate = False),
+                  "random under sampling": RandomUnderSampler(sampling_strategy=0.5),
+                  "random over sampling": RandomOverSampler(sampling_strategy=0.5)
+                  },
+              "eccd":{"smote": SMOTE(sampling_strategy=0.1),
+                  "outlier removal iqr": FunctionSampler(func=CustomSampler_IQR, validate = False),
+                  "random under sampling": RandomUnderSampler(sampling_strategy=0.9),
+                  "random over sampling": RandomOverSampler(sampling_strategy=0.1)
+                  }
               }
 
 # temp
-resampling = {"smote": SMOTE()}
-preprocessing = {"normalize": Normalizer()}
+resampling = {"wdbc": {"smote": SMOTE(sampling_strategy=0.5)},
+              "eccd":{"smote": SMOTE(sampling_strategy=0.1)}}
+preprocessing = {"standardize": StandardScaler()}
 
-pbar = tqdm(total=len(resampling) * len(preprocessing) * len(datasets) * len(models), desc= "Full Evaluation")
+pbar = tqdm(total=len(list(set(flatten([[key2 for key2 in resampling[key1].keys()] for key1 in resampling.keys()])))) * len(preprocessing) * len(datasets) * len(models) * 5, desc= "Full Evaluation")
 
-for resample in resampling:
+for resample in list(set(flatten([[key2 for key2 in resampling[key1].keys()] for key1 in resampling.keys()]))):
     for preprocess in preprocessing:
         if not os.path.exists(f"./output/full/{resample}_{preprocess}.json"):
-            results_dict = {"config": {"metrics": metrics, "preprocessing": [preprocess], "resampling": [resample]}, "results": {}}
+            results_dict = {"config": {"metrics": list(metrics.keys()), "preprocessing": [preprocess], "resampling": [resample]}, "results": {}}
             pbar.set_description("Full Evaluation - " + resample + " " + preprocess)
+            results_dict_temp = {}
             for dataset in datasets:
                 print("Dataset: ", dataset)
-                results_dict["results"][Path(dataset).stem] = {}
+                if not dataset in results_dict_temp.keys():
+                    results_dict_temp[Path(dataset).stem] = {}
+
                 df = pd.read_pickle(dataset)
                 X = df.drop(columns=["Target"]).values
                 y = df["Target"].values
@@ -120,31 +133,47 @@ for resample in resampling:
                     X = preprocessing[preprocess].fit_transform(X, y)
                 else:
                     X = preprocessing[preprocess].fit_transform(X)
-                train_X, test_X, train_y, test_y = train_test_split(X, y, test_size=0.3, random_state=42)
-                train_X, train_y = resampling[resample].fit_resample(train_X, train_y)
 
+                for i in range(5):
+                    train_X, test_X, train_y, test_y = train_test_split(X, y, test_size=0.3, random_state=i)
+
+                    if not resample == "outlier removal iqr":
+                        if train_y.sum() / (len(train_y) - train_y.sum()) < resampling[Path(dataset).stem][resample].sampling_strategy:
+                            train_X, train_y = resampling[Path(dataset).stem][resample].fit_resample(train_X, train_y)
+                    else:
+                        train_X, train_y = resampling[Path(dataset).stem][resample].fit_resample(train_X, train_y)
+
+                    for model in models:
+                        if not model in results_dict_temp[Path(dataset).stem].keys():
+                            results_dict_temp[Path(dataset).stem][model] = {}
+
+                        model_init = models[model]
+                        model_init.fit(train_X, train_y)
+                        predictions = model_init.predict(test_X)
+
+                        for metric in metrics:
+                            if not metric in ["roc_auc", "pr_rc_auc"]:
+                                predictions = (pd.Series(predictions) > 0.5).astype(int).values
+
+                            if metric == "fbeta":
+                                score = metrics[metric](test_y, predictions, beta=0.5)
+                            else:
+                                score = metrics[metric](test_y, predictions)
+
+                            if not metric in results_dict_temp[Path(dataset).stem][model].keys():
+                                results_dict_temp[Path(dataset).stem][model][metric] = {}
+
+                            results_dict_temp[Path(dataset).stem][model][metric][f"cv_{i}"] = score
+                        pbar.update(1)
+
+            for dataset in datasets:
                 for model in models:
-                    results_dict_temp = results_dict
-                    results_dict_temp["config"]["model"] = model
-                    results_dict_temp["results"][Path(dataset).stem][model] = {}
-
-                    model_init = models[model]
-                    model_init.fit(train_X, train_y)
-                    predictions = model_init.predict(test_X)
-
                     for metric in metrics:
-                        if not metric in ["roc_auc", "pr_rc_auc"]:
-                            predictions = (pd.Series(predictions) > 0.5).astype(int).values
+                        results_dict_temp[Path(dataset).stem][model][metric]["cv_score"] = np.mean([results_dict_temp[Path(dataset).stem][model][metric][f"cv_{i}"] for i in range(5)])
 
-                        if metric == "fbeta":
-                            score = metrics[metric](test_y, predictions, beta=0.5)
-                        else:
-                            score = metrics[metric](test_y, predictions)
-
-                        results_dict_temp["results"][Path(dataset).stem][model][metric] = score
-                    pbar.update(1)
+            results_dict["results"] = results_dict_temp
 
             with open(f"./output/full/{resample}_{preprocess}.json", "w") as f:
                 f.write(str(results_dict))
         else:
-            pbar.update(len(datasets) * len(models))
+            pbar.update(len(datasets) * len(models) * 5)
