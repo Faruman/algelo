@@ -18,7 +18,7 @@ from sitepackages.eloRating import EloSystem
 #setup the app
 app = Flask(__name__)
 bootstrap = Bootstrap5(app)
-sslify = SSLify(app)
+#sslify = SSLify(app)
 
 with open('creds.json') as f:
     creds = json.load(f)
@@ -133,7 +133,7 @@ def calculateElo():
                 performance_dfs.append(temp_df_dict)
             except:
                 failed_files.append(file)
-        elo = EloSystem()
+        elo = EloSystem(use_mov= True, mov_delta= 2)
         for algorithm in algos.keys():
             elo.add_player(algorithm)
         for performance_df in performance_dfs:
