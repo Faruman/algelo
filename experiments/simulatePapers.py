@@ -14,7 +14,7 @@ from tqdm import trange
 #from ..sitepackages.eloRating import EloSystem
 
 
-random.seed(24)
+random.seed(42)
 datasets = ["./data/eccd/eccd.pkl", "./data/wdbc/wdbc.pkl"]
 
 def flatten(xss):
@@ -24,10 +24,13 @@ def flatten(xss):
 from sklearn.linear_model import LogisticRegression, Lasso
 from sklearn.svm import SVC
 from sklearn.neighbors import KNeighborsClassifier
-from sklearn.naive_bayes import GaussianNB
+from sklearn.naive_bayes import GaussianNB, MultinomialNB
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier
 from sklearn.neural_network import MLPClassifier
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+from sklearn.linear_model import SGDClassifier
+from sklearn.ensemble import GradientBoostingClassifier
 
 models = {"lr" : LogisticRegression(),
           "svm": SVC(),
@@ -36,24 +39,29 @@ models = {"lr" : LogisticRegression(),
           "dt": DecisionTreeClassifier(),
           "rf": RandomForestClassifier(),
           "adab": AdaBoostClassifier(),
-          "mlp": MLPClassifier()
+          "mlp": MLPClassifier(),
+          "lda": LinearDiscriminantAnalysis(),
+          "lasso": Lasso(),
+          "sgd": SGDClassifier()
           }
 
 
 # define metrics
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score, fbeta_score, auc, precision_recall_curve
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score, fbeta_score, auc, precision_recall_curve, balanced_accuracy_score, average_precision_score
 
 def precision_recall_auc_score(y_true, y_pred):
     precision, recall, _ = precision_recall_curve(y_true, y_pred)
     return auc(recall, precision)
 
 metrics = {"precision": precision_score,
+           "avg precision": average_precision_score,
            "recall": recall_score,
            "f1": f1_score,
            "roc_auc": roc_auc_score,
            "pr_rc_auc": precision_recall_auc_score,
            "fbeta": fbeta_score,
-           "accuracy": accuracy_score}
+           "accuracy": accuracy_score,
+           "blcd accuracy": balanced_accuracy_score}
 
 
 #define pre-processing
@@ -112,10 +120,10 @@ resampling = {"wdbc": {"smote": SMOTE(sampling_strategy=0.5),
 
 
 
-for i in trange(0, 80, desc= "Simulating Papers"):
+for i in trange(0, 30, desc= "Simulating Papers"):
     if not os.path.exists(f"./output/papers/researcher_{i}.json"):
-        run_models = [list(models.keys())[i] for i in random.sample(range(0, len(models.keys())), random.randint(1, 5))]
-        run_metrics = [list(metrics.keys())[i] for i in random.sample(range(0, len(metrics.keys())), random.randint(1, 4))]
+        run_models = [list(models.keys())[i] for i in random.sample(range(0, len(models.keys())), random.randint(2, 5))]
+        run_metrics = [list(metrics.keys())[i] for i in random.sample(range(0, len(metrics.keys())), random.randint(1, 3))]
         run_preprocessing = [list(preprocessing.keys())[i] for i in random.sample(range(0, len(preprocessing.keys())), math.ceil((random.randint(0, 4)/4)))]
         resampling_list = list(set(flatten([[key2 for key2 in resampling[key1].keys()] for key1 in resampling.keys()])))
         run_resampling = [resampling_list[i] for i in random.sample(range(0, len(resampling_list)), math.ceil((random.randint(0, 4)/4)))]
@@ -128,7 +136,7 @@ for i in trange(0, 80, desc= "Simulating Papers"):
             df = pd.read_pickle(dataset)
 
             # allow variation in datasets
-            sample_size = random.randint(40, 80)/100
+            sample_size = random.randint(25, 75)/100
             sample = pd.DataFrame(columns=["Target"])
             while sample["Target"].nunique() < 2:
                 sample = df.sample(frac=sample_size, random_state=random.randint(0, 10000000)).reset_index(drop=True)
@@ -147,10 +155,6 @@ for i in trange(0, 80, desc= "Simulating Papers"):
 
             train_X, test_X, train_y, test_y = train_test_split(X, y, test_size=random.randint(10, 50)/100, random_state=42)
 
-            if not sum(train_y) > 0:
-                print("No positive class in training data")
-                continue
-
             # allow for different resampling steps
             for run_resample in run_resampling:
                 print("Resampling: ", run_resample)
@@ -159,6 +163,10 @@ for i in trange(0, 80, desc= "Simulating Papers"):
                         train_X, train_y = resampling[Path(dataset).stem][run_resample].fit_resample(train_X, train_y)
                 else:
                     train_X, train_y = resampling[Path(dataset).stem][run_resample].fit_resample(train_X, train_y)
+
+            if not sum(train_y) > 0:
+                print("No positive class in training data")
+                continue
 
             # allow for different models and metrics
             for run_model in run_models:
