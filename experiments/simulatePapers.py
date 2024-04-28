@@ -11,9 +11,6 @@ from sklearn.model_selection import train_test_split
 
 from tqdm import trange
 
-#from ..sitepackages.eloRating import EloSystem
-
-
 random.seed(42)
 datasets = ["./data/eccd/eccd.pkl", "./data/wdbc/wdbc.pkl"]
 
@@ -70,7 +67,6 @@ from sklearn.feature_selection import VarianceThreshold, SelectFromModel
 from sklearn.svm import LinearSVC
 from imblearn import FunctionSampler
 from sklearn.decomposition import PCA
-from sklearn.random_projection import GaussianRandomProjection
 from sklearn.preprocessing import PolynomialFeatures
 
 def CustomSampler_IQR(X, y):
