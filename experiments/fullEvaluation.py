@@ -92,15 +92,15 @@ for resample in list(set(flatten([[key2 for key2 in resampling[key1].keys()] for
                 else:
                     X = preprocessing[preprocess].fit_transform(X)
 
+                # do 5-fold cross validation
                 for i in range(5):
                     train_X, test_X, train_y, test_y = train_test_split(X, y, test_size=0.3, random_state=i)
 
-                    if resample:
-                        if not resample == "outlier removal iqr":
-                            if train_y.sum() / (len(train_y) - train_y.sum()) < resampling[Path(dataset).stem][resample].sampling_strategy:
-                                train_X, train_y = resampling[Path(dataset).stem][resample].fit_resample(train_X, train_y)
-                        else:
+                    if not resample == "outlier removal iqr":
+                        if train_y.sum() / (len(train_y) - train_y.sum()) < resampling[Path(dataset).stem][resample].sampling_strategy:
                             train_X, train_y = resampling[Path(dataset).stem][resample].fit_resample(train_X, train_y)
+                    else:
+                        train_X, train_y = resampling[Path(dataset).stem][resample].fit_resample(train_X, train_y)
 
                     for model in models:
                         if not model in results_dict_temp[Path(dataset).stem].keys():

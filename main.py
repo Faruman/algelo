@@ -133,27 +133,34 @@ def calculateElo():
                 performance_dfs.append(temp_df_dict)
             except:
                 failed_files.append(file)
-        elo = EloSystem(use_mov= True, mov_delta= 2)
-        for algorithm in algos.keys():
-            elo.add_player(algorithm)
-        for performance_df in performance_dfs:
-            for comp in performance_df["data"]:
-                elo.record_match(*comp, mov= (performance_df["paper_confidence"] + performance_df["usecase_confidence"])/2)
-        ranking = elo.get_overall_list()
-        for i in range(len(ranking)):
-            ranking[i]["rank"] = i
-            ranking[i]["prob"] = "{0:.0%}".format(ranking[i]["prob"])
-            ranking[i]["files"] = algos[ranking[i]["player"]]
+
+        cv_ranking = pd.DataFrame()
+        for fold in range(5):
+            elo = EloSystem(use_mov= True, mov_delta= 2)
+            for algorithm in algos.keys():
+                elo.add_player(algorithm)
+            for performance_df in performance_dfs:
+                for comp in performance_df["data"]:
+                    elo.record_match(*comp, mov= (performance_df["paper_confidence"] + performance_df["usecase_confidence"])/2)
+            ranking = elo.get_overall_list()
+            for i in range(len(ranking)):
+                ranking[i]["prob"] = ranking[i]["prob"]
+                ranking[i]["files"] = str(algos[ranking[i]["player"]])
+            cv_ranking = pd.concat((cv_ranking, pd.DataFrame(ranking)))
+        cv_ranking = cv_ranking.groupby(["player", "files"]).mean().reset_index()
+        cv_ranking["prob"] = cv_ranking["prob"].apply(lambda x: "{0:.0%}".format(x))
+        cv_ranking = cv_ranking.sort_values("elo", ascending=False)
+        cv_ranking["rank"] = cv_ranking.rank(ascending=False)["elo"]
         file_name = uuid.uuid4().hex + ".xlsx"
         temp_xlsx = "/tmp/" + file_name
-        pd.DataFrame(ranking).to_excel(temp_xlsx)
+        pd.DataFrame(cv_ranking).to_excel(temp_xlsx)
         bucket = storage_client.bucket(session["id"] + "_results")
         initTempBucket(bucket)
         blob = bucket.blob(file_name)
         blob.upload_from_filename(temp_xlsx)
         file_url = blob.generate_signed_url(datetime.timedelta(seconds= 600), method= "GET")
         os.remove(temp_xlsx)
-        return render_template("results.html", results= ranking, ranking_file= file_url, failed_files= failed_files)
+        return render_template("results.html", results= cv_ranking, ranking_file= file_url, failed_files= failed_files)
     else:
         abort(422)
 

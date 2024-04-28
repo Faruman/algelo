@@ -80,34 +80,37 @@ for rst in trange(10):
             rankings[time_interval][dataset]["baseline_2"] = baseline2
 
             # test 1: use the elo ranking to select the best models
-            elo = EloSystem(use_mov= True, mov_delta= 2, mov_alpha= 2)
-            for algorithm in combined_paper_performance_table["model"].unique():
-                elo.add_player(algorithm)
-            for i, performance_df in combined_paper_performance_table.loc[combined_paper_performance_table["id"] < time_interval].groupby("id"):
-                for metric in metrics_ordered[dataset]:
-                    if metric in performance_df["metric"].unique():
-                        chosen_metric = metric
-                        idx_chosen_metric = metrics_ordered[dataset].index(chosen_metric)
-                        break
-                usecase_cofindence = 2
-                if idx_chosen_metric == 0:
-                    usecase_cofindence = 3
-                elif idx_chosen_metric > int(performance_df["metric"].nunique()/2):
-                    usecase_cofindence = 1
-                temp_df_dict= performance_df.loc[(performance_df["metric"] == chosen_metric) & (performance_df["dataset"] == dataset)][["model", "score"]].set_index("model")["score"].to_dict()
-                temp_df_dict = itertools.combinations([(key, temp_df_dict[key]) for key in temp_df_dict], r=2)
-                temp_df_dict = [(comp[0][0], comp[1][0], comp[0][0]) if comp[0][1] > comp[1][1] else (comp[0][0], comp[1][0], None) if comp[0][1] >= comp[1][1] else (comp[0][0], comp[1][0], comp[1][0]) for comp in temp_df_dict]
+            cv_eloranking = pd.DataFrame([])
+            for fold in range(5):
+                elo = EloSystem(use_mov= True, mov_delta= 2, mov_alpha= 2)
+                for algorithm in combined_paper_performance_table["model"].unique():
+                    elo.add_player(algorithm)
+                for i, performance_df in combined_paper_performance_table.loc[combined_paper_performance_table["id"] < time_interval].groupby("id"):
+                    for metric in metrics_ordered[dataset]:
+                        if metric in performance_df["metric"].unique():
+                            chosen_metric = metric
+                            idx_chosen_metric = metrics_ordered[dataset].index(chosen_metric)
+                            break
+                    usecase_cofindence = 2
+                    if idx_chosen_metric == 0:
+                        usecase_cofindence = 3
+                    elif idx_chosen_metric > int(performance_df["metric"].nunique()/2):
+                        usecase_cofindence = 1
+                    temp_df_dict= performance_df.loc[(performance_df["metric"] == chosen_metric) & (performance_df["dataset"] == dataset)][["model", "score"]].set_index("model")["score"].to_dict()
+                    temp_df_dict = itertools.combinations([(key, temp_df_dict[key]) for key in temp_df_dict], r=2)
+                    temp_df_dict = [(comp[0][0], comp[1][0], comp[0][0]) if comp[0][1] > comp[1][1] else (comp[0][0], comp[1][0], None) if comp[0][1] >= comp[1][1] else (comp[0][0], comp[1][0], comp[1][0]) for comp in temp_df_dict]
 
-                for comp in temp_df_dict:
-                    elo.record_match(*comp, mov=(2 + usecase_cofindence) / 2)
-                    #elo.record_match(*comp)
+                    for comp in temp_df_dict:
+                        elo.record_match(*comp, mov=(2 + usecase_cofindence) / 2)
+                        #elo.record_match(*comp)
+                cv_eloranking = pd.concat((cv_eloranking, pd.DataFrame(elo.get_overall_list())))
 
-            eloranking = pd.DataFrame(elo.get_overall_list())
-            eloranking = eloranking.rename(columns= {"player": "model", "elo": "score"})
-            eloranking["dataset"] = dataset
-            eloranking["rank"] = eloranking.sort_values("score", ascending=False).rank(ascending=False)["score"]
+            cv_eloranking = cv_eloranking.rename(columns={"player": "model", "elo": "score"})
+            cv_eloranking["dataset"] = dataset
+            cv_eloranking = cv_eloranking.groupby(["model", "dataset"]).mean().reset_index()
+            cv_eloranking["rank"] = cv_eloranking.sort_values("score", ascending=False).rank(ascending=False)["score"]
 
-            rankings[time_interval][dataset]["eloranking"] = eloranking
+            rankings[time_interval][dataset]["eloranking"] = cv_eloranking
 
     # gold standard: use the full evaluation to select the best models
     with open(full_evaluation_path, "r") as f:
@@ -146,7 +149,7 @@ g.add_legend()
 #g.map(plt.axhline, y=1, ls='--', color='black')
 plt.suptitle("Performance by Ranking Method")
 plt.subplots_adjust(top=0.85)
-plt.savefig("./plots/performance_by_ranking_method_scatter.png")
+#plt.savefig("./plots/performance_by_ranking_method_scatter.png")
 plt.show()
 
 # test difference in mean between the methods
