@@ -116,7 +116,7 @@ resampling = {"wdbc": {"smote": SMOTE(sampling_strategy=0.5),
 
 
 
-for i in trange(0, 30, desc= "Simulating Papers"):
+for i in trange(0, 25, desc= "Simulating Papers"):
     if not os.path.exists(f"./output/papers/researcher_{i}.json"):
         run_models = [list(models.keys())[i] for i in random.sample(range(0, len(models.keys())), random.randint(2, 5))]
         run_metrics = [list(metrics.keys())[i] for i in random.sample(range(0, len(metrics.keys())), random.randint(1, 3))]
