@@ -62,11 +62,10 @@ metrics = {"precision": precision_score,
            "blcd accuracy": balanced_accuracy_score}
 
 
-#define pre-processing
+#define resampling and pre-processing
 from sklearn.preprocessing import Normalizer, StandardScaler
 from imblearn.over_sampling import SMOTE
 
-# temp
 resampling = {"wdbc": {"smote": SMOTE(sampling_strategy=0.5)},
               "eccd":{"smote": SMOTE(sampling_strategy=0.1)}}
 preprocessing = {"standardize": StandardScaler()}
