@@ -2,9 +2,10 @@
 
 {% block content %}
 <div class="container page mb-4" id="page1">
-    <div class="p-3 pb-md-4 mx-auto">
+    <div class="py-3 pb-md-4 mx-auto">
         <h1 class="mt-3">Upload your files</h1>
-        <p class="lead">To use the elo ranker for each paper you want to compare upload an excel table with the different algorithms as rows and the different performacne measures given by the paper as columns. An example for such a paper can be found here: <a href="{{ url_for('static', filename='content/ExampleTable.xlsx') }}">ExampleTable.xlsx</a><br><br> After that you will be able to decide which metric you want the ranking system to consider in every table and you can indicate how confident you are in the paper and how close your use case is to the one described in it (use case confidence).</p>
+        <p class="lead">To use the elo ranker for each paper you want to compare upload an excel table with the different algorithms and performacne measures. An example for such a paper can be found here: <a href="{{ url_for('static', filename='content/ExampleTable.xlsx') }}">ExampleTable.xlsx</a><br><br> After that you will be able to decide which metric you want the ranking system to consider in every table and you can indicate how confident you are in the paper and how close your use case is to the one described in it (use case confidence).</p>
+        <div class="alert alert-info" role="alert">Please note that for the system to work, the different <b>algorithms need to provide in the rows</b> and the different <b>performance metric need to be given as columns.</b></div>
     </div>
 
     <div class="alert alert-danger page-alert" role="alert" style="display: none">
@@ -98,7 +99,7 @@
 
 <div class="container page" id="page2" style="display: none">
     <h1 class="mt-3">Ranking your Algorithm</h1>
-    <p class="lead">Currently MiclAlgElo is comapring your algorithms with each other to judge their relative performance under incomplete information. Wait a second, we will be ready soon ...</p>
+    <p class="lead">Currently MicAlgElo is comapring your algorithms with each other to judge their relative performance under incomplete information. Wait a second, we will be ready soon ...</p>
     <div class="d-grid gap-2 py-3">
         <button class="btn btn-primary btn-lg" type="button" disabled>
             <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Making an algorithm tournament ...
@@ -108,7 +109,7 @@
 
 <div class="container page" id="page3" style="display: none">
     <h1 class="mt-3">Elo Ranking</h1>
-    <p class="lead">In the table below you find the ranking of all the algorithms you submited to MiclAlgElo. We hope, this helps you with your further research. If you want to have further information about MiclAlgElo, please read our <a href="#" target="_blank" disabled>Paper</a> and if your interested in our implementation please visit our <a href="https://github.com/Faruman/MiclAlgElo" target="_blank">GitHub</a></p>
+    <p class="lead">In the table below you find the ranking of all the algorithms you submited to MicAlgElo. We hope, this helps you with your further research. If you want to have further information about MicAlgElo, please read our <a href="#" target="_blank" disabled>Paper</a> and if your interested in our implementation please visit our <a href="https://anonymous.4open.science/r/algelo-32FF/experiments" target="_blank">GitHub</a></p>
     <div id="result"></div>
     <div class="container py-3">
         <div class="row">

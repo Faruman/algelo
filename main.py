@@ -18,7 +18,7 @@ from sitepackages.eloRating import EloSystem
 #setup the app
 app = Flask(__name__)
 bootstrap = Bootstrap5(app)
-#sslify = SSLify(app)
+sslify = SSLify(app)
 
 with open('creds.json') as f:
     creds = json.load(f)
@@ -145,12 +145,13 @@ def calculateElo():
             ranking = elo.get_overall_list()
             for i in range(len(ranking)):
                 ranking[i]["prob"] = ranking[i]["prob"]
-                ranking[i]["files"] = str(algos[ranking[i]["player"]])
+                ranking[i]["files"] = str(algos[ranking[i]["player"]]).replace("[", "").replace("]", "").replace("'", "").replace(",", ", ")
             cv_ranking = pd.concat((cv_ranking, pd.DataFrame(ranking)))
         cv_ranking = cv_ranking.groupby(["player", "files"]).mean().reset_index()
         cv_ranking["prob"] = cv_ranking["prob"].apply(lambda x: "{0:.0%}".format(x))
         cv_ranking = cv_ranking.sort_values("elo", ascending=False)
         cv_ranking["rank"] = cv_ranking.rank(ascending=False)["elo"]
+        cv_ranking = cv_ranking.rename(columns= {"player": "algorithm"})
         file_name = uuid.uuid4().hex + ".xlsx"
         temp_xlsx = "/tmp/" + file_name
         pd.DataFrame(cv_ranking).to_excel(temp_xlsx)
@@ -160,7 +161,7 @@ def calculateElo():
         blob.upload_from_filename(temp_xlsx)
         file_url = blob.generate_signed_url(datetime.timedelta(seconds= 600), method= "GET")
         os.remove(temp_xlsx)
-        return render_template("results.html", results= cv_ranking, ranking_file= file_url, failed_files= failed_files)
+        return render_template("results.html", results= cv_ranking.to_dict('records'), ranking_file= file_url, failed_files= failed_files)
     else:
         abort(422)
 
