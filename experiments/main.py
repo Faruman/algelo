@@ -22,8 +22,8 @@ import scipy
 
 # run dataPreperation.py, fullEvaluation.py, and simulatePapers.py first
 
-experiment_path = "./output/papers/"
-full_evaluation_path = "./output/full/smote_standardize.json"
+experiment_path = "output/papers/old/"
+full_evaluation_path = "./output/full/"
 
 metrics_ordered = {"eccd": ["f1", "pr_rc_auc", "fbeta", "roc_auc", "recall", "blcd accuracy", "accuracy", "avg precision", "precision"],
                    "wdbc": ["recall", "roc_auc", "f1", "pr_rc_auc", "blcd accuracy", "fbeta", "accuracy", "avg precision", "precision"]}
@@ -45,6 +45,14 @@ def get_performanceTable(paper_raw, id):
     performance_tables = performance_tables.melt(id_vars= ["id","dataset", "model", "rank"], value_vars= paper_raw["config"]["metrics"], var_name= "metric", value_name= "score")
     return performance_tables
 
+def flatten(l):
+    if not isinstance(l, list):
+        return [l]
+    flat = []
+    for sublist in l:
+        flat.extend(flatten(sublist))
+    return flat
+
 # load papers
 combined_paper_performance_table = pd.DataFrame([], columns= ["id", "dataset", "model", "rank", "metric", "score"])
 for i, file in enumerate(glob(f"{experiment_path}researcher_*.json")):
@@ -54,6 +62,19 @@ for i, file in enumerate(glob(f"{experiment_path}researcher_*.json")):
     combined_paper_performance_table = pd.concat((combined_paper_performance_table, get_performanceTable(paper, i)))
 combined_paper_performance_table = combined_paper_performance_table.reset_index(drop=True)
 combined_paper_performance_table["id"] = combined_paper_performance_table["id"] - combined_paper_performance_table["id"].min()
+#load gold standard
+gold_standard_raw_results = []
+gold_standard_raw_configs = {}
+for i, file in enumerate(glob(f"{full_evaluation_path}/*.json")):
+    with open(file, "r") as f:
+        paper = f.read()
+    temp_results = json.loads(paper.replace("\'", "\""))["results"]
+    temp_results = flatten([[[{"index": i, "dataset": ds, "model": mdl, "metric": me, "score": temp_results[ds][mdl][me]["cv_score"]} for me in temp_results[ds][mdl]] for mdl in temp_results[ds]] for ds in temp_results.keys()])
+    gold_standard_raw_results.append(temp_results)
+    temp_config = json.loads(paper.replace("\'", "\""))["config"]
+    gold_standard_raw_configs[i] = temp_config
+gold_standard_raw_results = pd.DataFrame(flatten(gold_standard_raw_results))
+
 
 # validate using 5-fold cv
 results_master_df = pd.DataFrame([], columns= ["Observed Papers", "Dataset", "Selection Method", "NDGC"])
@@ -103,9 +124,10 @@ for rst in trange(10):
                     for comp in temp_df_dict:
                         elo.record_match(*comp, mov=(2 + usecase_cofindence) / 2)
                         #elo.record_match(*comp)
-                cv_eloranking = pd.concat((cv_eloranking, pd.DataFrame(elo.get_overall_list())))
 
-            cv_eloranking = cv_eloranking.rename(columns={"player": "model", "elo": "score"})
+                    cv_eloranking = pd.concat((cv_eloranking, pd.DataFrame(elo.get_overall_list())))
+
+            cv_eloranking = cv_eloranking.rename(columns= {"player": "model", "elo": "score"})
             cv_eloranking["dataset"] = dataset
             cv_eloranking = cv_eloranking.groupby(["model", "dataset"]).mean().reset_index()
             cv_eloranking["rank"] = cv_eloranking.sort_values("score", ascending=False).rank(ascending=False)["score"]
@@ -113,16 +135,12 @@ for rst in trange(10):
             rankings[time_interval][dataset]["eloranking"] = cv_eloranking
 
     # gold standard: use the full evaluation to select the best models
-    with open(full_evaluation_path, "r") as f:
-        gold_standard_raw = f.read()
-    gold_standard_raw = json.loads(gold_standard_raw.replace("\'", "\""))
+
 
     gold_standard = {}
-    for dataset in gold_standard_raw["results"].keys():
-        gold_standard[dataset] = pd.DataFrame([[gold_standard_raw["results"][dataset][algo][metric]["cv_score"] for metric in metrics_ordered[dataset]] for algo in gold_standard_raw["results"][dataset]],
-                                              columns= metrics_ordered[dataset], index= gold_standard_raw["results"][dataset].keys())
-        gold_standard[dataset]["rank"] = gold_standard[dataset].sort_values(metrics_ordered[dataset][0], ascending=False).rank(ascending=False)[metrics_ordered[dataset][0]]
-
+    for dataset in gold_standard_raw_results["dataset"].unique():
+        gold_standard[dataset] = pd.DataFrame(gold_standard_raw_results.loc[(gold_standard_raw_results["dataset"] == dataset) & (gold_standard_raw_results["metric"] == metrics_ordered[dataset][0])].groupby(["model", "dataset", "metric"])["score"].max().reset_index(level= [1,2], drop= True))
+        gold_standard[dataset]["rank"] = gold_standard[dataset].sort_values("score", ascending=False).rank(ascending=False)["score"]
 
     # evaluate and plot performance
     results_df = pd.DataFrame([], columns= ["Observed Papers", "Dataset", "Selection Method", "NDGC"])
@@ -149,7 +167,7 @@ g.add_legend()
 #g.map(plt.axhline, y=1, ls='--', color='black')
 plt.suptitle("Performance by Ranking Method")
 plt.subplots_adjust(top=0.85)
-#plt.savefig("./plots/performance_by_ranking_method_scatter.png")
+plt.savefig("./plots/performance_by_ranking_method_scatter.png")
 plt.show()
 
 # test difference in mean between the methods
