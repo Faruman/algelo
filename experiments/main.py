@@ -11,7 +11,10 @@ import itertools
 
 from sklearn.metrics import ndcg_score
 import seaborn as sns
+
+import matplotlib
 from matplotlib import pyplot as plt
+matplotlib.use('TkAgg')
 
 import sys
 import os
@@ -58,22 +61,25 @@ combined_paper_performance_table = pd.DataFrame([], columns= ["id", "dataset", "
 for i, file in enumerate(glob(f"{experiment_path}researcher_*.json")):
     with open(file, "r") as f:
         paper = f.read()
-    paper = json.loads(paper.replace("\'", "\""))
+    paper = json.loads(paper.replace("\'", "\"").replace("nan", '""'))
     combined_paper_performance_table = pd.concat((combined_paper_performance_table, get_performanceTable(paper, i)))
 combined_paper_performance_table = combined_paper_performance_table.reset_index(drop=True)
+combined_paper_performance_table["score"] = combined_paper_performance_table["score"].apply(lambda x: 0 if x == "" else float(x))
 combined_paper_performance_table["id"] = combined_paper_performance_table["id"] - combined_paper_performance_table["id"].min()
+
 #load gold standard
 gold_standard_raw_results = []
 gold_standard_raw_configs = {}
 for i, file in enumerate(glob(f"{full_evaluation_path}/*.json")):
     with open(file, "r") as f:
         paper = f.read()
-    temp_results = json.loads(paper.replace("\'", "\""))["results"]
+    temp_results = json.loads(paper.replace("\'", "\"").replace("nan", '""'))["results"]
     temp_results = flatten([[[{"index": i, "dataset": ds, "model": mdl, "metric": me, "score": temp_results[ds][mdl][me]["cv_score"]} for me in temp_results[ds][mdl]] for mdl in temp_results[ds]] for ds in temp_results.keys()])
     gold_standard_raw_results.append(temp_results)
-    temp_config = json.loads(paper.replace("\'", "\""))["config"]
+    temp_config = json.loads(paper.replace("\'", "\"").replace("nan", '""'))["config"]
     gold_standard_raw_configs[i] = temp_config
 gold_standard_raw_results = pd.DataFrame(flatten(gold_standard_raw_results))
+gold_standard_raw_results["score"] = gold_standard_raw_results["score"].apply(lambda x: 0 if x == "" else float(x))
 
 
 # validate using 5-fold cv
@@ -175,7 +181,6 @@ for dataset in datasets:
                               results_master_df.loc[(results_master_df["Dataset"] == dataset) & (results_master_df["Selection Method"] == selection_method_baseline), "NDGC"],
                               alternative="greater")
         print(f"Dataset: {dataset}, Selection Method: {selection_methods_dict[selection_method_baseline]}, p-value: {rel_ttest.pvalue}")
-
 
 
 

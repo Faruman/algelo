@@ -61,14 +61,60 @@ metrics = {"precision": precision_score,
            "accuracy": accuracy_score,
            "blcd accuracy": balanced_accuracy_score}
 
-
-#define resampling and pre-processing
+#define pre-processing
 from sklearn.preprocessing import Normalizer, StandardScaler
-from imblearn.over_sampling import SMOTE
+from sklearn.feature_selection import VarianceThreshold, SelectFromModel
+from sklearn.svm import LinearSVC
+from imblearn import FunctionSampler
+from sklearn.decomposition import PCA
+from sklearn.random_projection import GaussianRandomProjection
+from sklearn.preprocessing import PolynomialFeatures
 
-resampling = {"wdbc": {"smote": SMOTE(sampling_strategy=0.5)},
-              "eccd":{"smote": SMOTE(sampling_strategy=0.1)}}
-preprocessing = {"standardize": StandardScaler()}
+def CustomSampler_IQR(X, y):
+    df = pd.DataFrame(X)
+    features = df.columns
+    df['Target'] = y
+    indices = [x for x in df.index]
+    out_indexlist = []
+    for col in features:
+        # Using nanpercentile instead of percentile because of nan values
+        Q1 = np.nanpercentile(df[col], 25.)
+        Q3 = np.nanpercentile(df[col], 75.)
+        cut_off = (Q3 - Q1) * 1.5
+        upper, lower = Q3 + cut_off, Q1 - cut_off
+        outliers_index = df[col][(df[col] < lower) | (df[col] > upper)].index.tolist()
+        out_indexlist.extend(outliers_index)
+    # using set to remove duplicates
+    out_indexlist = list(set(out_indexlist))
+    clean_data = np.setdiff1d(indices, out_indexlist)
+    return X[clean_data], y[clean_data]
+
+
+preprocessing = {"normalize": Normalizer(),
+                 "standardize": StandardScaler(),
+                 "feature selection low var": VarianceThreshold(threshold=(.8 * (1 - .8))),
+                 "feature selection l1": SelectFromModel(LinearSVC(dual="auto", penalty="l1")),
+                 "feature aggregation pca": PCA(n_components=6),
+                 "feature creation": PolynomialFeatures(2)
+                }
+
+# define resampling
+from imblearn.over_sampling import SMOTE
+from imblearn.under_sampling import RandomUnderSampler
+from imblearn.over_sampling import RandomOverSampler
+
+resampling = {"wdbc": {"smote": SMOTE(sampling_strategy=0.5),
+                  "outlier removal iqr": FunctionSampler(func=CustomSampler_IQR, validate = False),
+                  "random under sampling": RandomUnderSampler(sampling_strategy=0.5),
+                  "random over sampling": RandomOverSampler(sampling_strategy=0.5)
+                  },
+              "eccd":{"smote": SMOTE(sampling_strategy=0.1),
+                  "outlier removal iqr": FunctionSampler(func=CustomSampler_IQR, validate = False),
+                  "random under sampling": RandomUnderSampler(sampling_strategy=0.9),
+                  "random over sampling": RandomOverSampler(sampling_strategy=0.1)
+                  }
+              }
+
 
 pbar = tqdm(total=len(list(set(flatten([[key2 for key2 in resampling[key1].keys()] for key1 in resampling.keys()])))) * len(preprocessing) * len(datasets) * len(models) * 5, desc= "Full Evaluation")
 
@@ -94,13 +140,29 @@ for resample in list(set(flatten([[key2 for key2 in resampling[key1].keys()] for
 
                 # do 5-fold cross validation
                 for i in range(5):
-                    train_X, test_X, train_y, test_y = train_test_split(X, y, test_size=0.3, random_state=i)
+                    j = 0
+                    train_y = np.zeros(1)
+                    while train_y.sum() == 0:
+                        train_X, test_X, train_y, test_y = train_test_split(X, y, test_size=0.3, random_state=i + j)
+                        j += 1
 
-                    if not resample == "outlier removal iqr":
-                        if train_y.sum() / (len(train_y) - train_y.sum()) < resampling[Path(dataset).stem][resample].sampling_strategy:
+                    if resampling[Path(dataset).stem][resample]:
+                        if not resample == "outlier removal iqr":
+                            if train_y.sum() / (len(train_y) - train_y.sum()) < resampling[Path(dataset).stem][resample].sampling_strategy:
+                                train_X, train_y = resampling[Path(dataset).stem][resample].fit_resample(train_X, train_y)
+                        else:
                             train_X, train_y = resampling[Path(dataset).stem][resample].fit_resample(train_X, train_y)
-                    else:
-                        train_X, train_y = resampling[Path(dataset).stem][resample].fit_resample(train_X, train_y)
+
+                    if train_y.sum() == 0:
+                        print("Skipped round as no postitve sample were left in the training set, set scores to nan.")
+                        for model in models:
+                            if not model in results_dict_temp[Path(dataset).stem].keys():
+                                results_dict_temp[Path(dataset).stem][model] = {}
+                            for metric in metrics:
+                                if not metric in results_dict_temp[Path(dataset).stem][model].keys():
+                                    results_dict_temp[Path(dataset).stem][model][metric] = {}
+                                results_dict_temp[Path(dataset).stem][model][metric][f"cv_{i}"] = np.nan
+                        continue
 
                     for model in models:
                         if not model in results_dict_temp[Path(dataset).stem].keys():
