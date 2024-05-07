@@ -18,7 +18,8 @@ In the evolving landscape of machine learning (ML), selecting the most effective
 ``` 
 pip install requirements -r requirements.txt
 ```
-* now the webapp can be started by running the following command: 
+* For the web app to be working it needs to have access to Google Cloud bucket storage, thus a json file with a user able to access this storage needs to be added to the directory (google-creds.json).
+* Having done that, the webapp can be started by running the following command: 
 ```
 python main.py
 ```
