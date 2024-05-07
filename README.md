@@ -29,7 +29,7 @@ gcloud app deploy
 ```
 
 ## Web App
-This Web App is a prototype of the proposed tool. It allows users to upload a dataset of algorithm performance metrics and compare the performance of the algorithms using the proposed Elo rating system. All code for the web app can be found in the main directory of the repository. To run the web app successfully, it needs to be able to write and read objects from Google Cloud bucket storage, thus a json file with a user able to access this storage needs to be added to the directory (google-creds.json).
+This Web App is a prototype of the proposed tool. It allows users to upload a dataset of algorithm performance metrics and compare the performance of the algorithms using the proposed Elo rating system. All code for the web app can be found in the main directory of the repository.
 
 A deployed version of the web app can be found [here](https://algelo-algorithmranking.appspot.com/).
 
