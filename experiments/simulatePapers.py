@@ -105,18 +105,20 @@ from imblearn.over_sampling import RandomOverSampler
 resampling = {"wdbc": {"smote": SMOTE(sampling_strategy=0.5),
                   "outlier removal iqr": FunctionSampler(func=CustomSampler_IQR, validate = False),
                   "random under sampling": RandomUnderSampler(sampling_strategy=0.5),
-                  "random over sampling": RandomOverSampler(sampling_strategy=0.5)
+                  "random over sampling": RandomOverSampler(sampling_strategy=0.5),
+                  "": None
                   },
               "eccd":{"smote": SMOTE(sampling_strategy=0.1),
                   "outlier removal iqr": FunctionSampler(func=CustomSampler_IQR, validate = False),
                   "random under sampling": RandomUnderSampler(sampling_strategy=0.9),
-                  "random over sampling": RandomOverSampler(sampling_strategy=0.1)
+                  "random over sampling": RandomOverSampler(sampling_strategy=0.1),
+                  "": None
                   }
               }
 
 
 
-for i in trange(0, 25, desc= "Simulating Papers"):
+for i in trange(0, 30, desc= "Simulating Papers"):
     if not os.path.exists(f"./output/papers/researcher_{i}.json"):
         run_models = [list(models.keys())[i] for i in random.sample(range(0, len(models.keys())), random.randint(2, 5))]
         run_metrics = [list(metrics.keys())[i] for i in random.sample(range(0, len(metrics.keys())), random.randint(1, 3))]
@@ -153,12 +155,13 @@ for i in trange(0, 25, desc= "Simulating Papers"):
 
             # allow for different resampling steps
             for run_resample in run_resampling:
-                print("Resampling: ", run_resample)
-                if run_resample != "outlier removal iqr":
-                    if train_y.sum() / (len(train_y) - train_y.sum()) < resampling[Path(dataset).stem][run_resample].sampling_strategy:
+                if resampling[Path(dataset).stem][run_resample]:
+                    print("Resampling: ", run_resample)
+                    if run_resample != "outlier removal iqr":
+                        if train_y.sum() / (len(train_y) - train_y.sum()) < resampling[Path(dataset).stem][run_resample].sampling_strategy:
+                            train_X, train_y = resampling[Path(dataset).stem][run_resample].fit_resample(train_X, train_y)
+                    else:
                         train_X, train_y = resampling[Path(dataset).stem][run_resample].fit_resample(train_X, train_y)
-                else:
-                    train_X, train_y = resampling[Path(dataset).stem][run_resample].fit_resample(train_X, train_y)
 
             if not sum(train_y) > 0:
                 print("No positive class in training data")

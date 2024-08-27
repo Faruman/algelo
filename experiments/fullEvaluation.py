@@ -106,12 +106,14 @@ from imblearn.over_sampling import RandomOverSampler
 resampling = {"wdbc": {"smote": SMOTE(sampling_strategy=0.5),
                   "outlier removal iqr": FunctionSampler(func=CustomSampler_IQR, validate = False),
                   "random under sampling": RandomUnderSampler(sampling_strategy=0.5),
-                  "random over sampling": RandomOverSampler(sampling_strategy=0.5)
+                  "random over sampling": RandomOverSampler(sampling_strategy=0.5),
+                  "": None
                   },
               "eccd":{"smote": SMOTE(sampling_strategy=0.1),
                   "outlier removal iqr": FunctionSampler(func=CustomSampler_IQR, validate = False),
                   "random under sampling": RandomUnderSampler(sampling_strategy=0.9),
-                  "random over sampling": RandomOverSampler(sampling_strategy=0.1)
+                  "random over sampling": RandomOverSampler(sampling_strategy=0.1),
+                  "": None
                   }
               }
 

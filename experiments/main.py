@@ -19,7 +19,7 @@ matplotlib.use('TkAgg')
 import sys
 import os
 sys.path.append(os.path.abspath('../sitepackages'))
-from eloRating import EloSystem
+from sitepackages.eloRating import EloSystem
 
 import scipy
 
