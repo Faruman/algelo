@@ -1,6 +1,7 @@
 import os
 import copy
 import math
+import time
 from pathlib import Path
 import random
 
@@ -12,7 +13,11 @@ from sklearn.model_selection import train_test_split
 from tqdm import trange
 
 random.seed(42)
-datasets = ["./data/eccd/eccd.pkl", "./data/wdbc/wdbc.pkl"]
+dataset_types = ["eccd", "wdbc"]
+for dataset_type in dataset_types:
+    if not os.path.exists(f"./output/papers/{dataset_type}"):
+        os.makedirs(f"./output/papers/{dataset_type}")
+datasets = {"eccd": ["./data/eccd/eccd.pkl", "./data/ieeecis/ieeecis.pkl"], "wdbc": ["./data/wdbc/wdbc.pkl", "./data/wbcd/wbcd.pkl"]}
 
 def flatten(xss):
     return [x for xs in xss for x in xs]
@@ -22,12 +27,13 @@ from sklearn.linear_model import LogisticRegression, Lasso
 from sklearn.svm import SVC
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.naive_bayes import GaussianNB, MultinomialNB
-from sklearn.tree import DecisionTreeClassifier
+from sklearn.tree import DecisionTreeClassifier, ExtraTreeClassifier
 from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier
 from sklearn.neural_network import MLPClassifier
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.linear_model import SGDClassifier
 from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis
 
 models = {"lr" : LogisticRegression(),
           "svm": SVC(),
@@ -108,7 +114,19 @@ resampling = {"wdbc": {"smote": SMOTE(sampling_strategy=0.5),
                   "random over sampling": RandomOverSampler(sampling_strategy=0.5),
                   "": None
                   },
+              "wbcd": {"smote": SMOTE(sampling_strategy=0.5),
+                  "outlier removal iqr": FunctionSampler(func=CustomSampler_IQR, validate = False),
+                  "random under sampling": RandomUnderSampler(sampling_strategy=0.5),
+                  "random over sampling": RandomOverSampler(sampling_strategy=0.5),
+                  "": None
+                  },
               "eccd":{"smote": SMOTE(sampling_strategy=0.1),
+                  "outlier removal iqr": FunctionSampler(func=CustomSampler_IQR, validate = False),
+                  "random under sampling": RandomUnderSampler(sampling_strategy=0.9),
+                  "random over sampling": RandomOverSampler(sampling_strategy=0.1),
+                  "": None
+                  },
+              "ieeecis":{"smote": SMOTE(sampling_strategy=0.1),
                   "outlier removal iqr": FunctionSampler(func=CustomSampler_IQR, validate = False),
                   "random under sampling": RandomUnderSampler(sampling_strategy=0.9),
                   "random over sampling": RandomOverSampler(sampling_strategy=0.1),
@@ -118,75 +136,82 @@ resampling = {"wdbc": {"smote": SMOTE(sampling_strategy=0.5),
 
 
 
-for i in trange(0, 30, desc= "Simulating Papers"):
-    if not os.path.exists(f"./output/papers/researcher_{i}.json"):
-        run_models = [list(models.keys())[i] for i in random.sample(range(0, len(models.keys())), random.randint(2, 5))]
-        run_metrics = [list(metrics.keys())[i] for i in random.sample(range(0, len(metrics.keys())), random.randint(1, 3))]
-        run_preprocessing = [list(preprocessing.keys())[i] for i in random.sample(range(0, len(preprocessing.keys())), math.ceil((random.randint(0, 4)/4)))]
-        resampling_list = list(set(flatten([[key2 for key2 in resampling[key1].keys()] for key1 in resampling.keys()])))
-        run_resampling = [resampling_list[i] for i in random.sample(range(0, len(resampling_list)), math.ceil((random.randint(0, 4)/4)))]
+for i in trange(0, 250, desc= "Simulating Papers"):
+    for dataset_type in dataset_types:
+        if not os.path.exists(f"./output/papers/{dataset_type}/researcher_{i}_0.json"):
+            run_models = [list(models.keys())[i] for i in random.sample(range(0, len(models.keys())), random.randint(2, 5))]
+            run_metrics = [list(metrics.keys())[i] for i in random.sample(range(0, len(metrics.keys())), random.randint(1, 3))]
+            run_preprocessing = [list(preprocessing.keys())[i] for i in random.sample(range(0, len(preprocessing.keys())), math.ceil((random.randint(0, 4)/4)))]
+            resampling_list = list(set(flatten([[key2 for key2 in resampling[key1].keys()] for key1 in resampling.keys()])))
+            run_resampling = [resampling_list[i] for i in random.sample(range(0, len(resampling_list)), math.ceil((random.randint(0, 4)/4)))]
 
-        results_dict = {"config": {"models": run_models, "metrics": run_metrics, "preprocessing": run_preprocessing, "resampling": run_resampling}, "results": {}}
+            for j, dataset in enumerate(datasets[dataset_type]):
+                if dataset_type == Path(dataset).stem or random.random() > 0.5:
+                    results_dict = {"config": {"models": run_models, "metrics": run_metrics, "preprocessing": run_preprocessing, "resampling": run_resampling}, "results": {}}
+                    print("Dataset: ", dataset)
+                    results_dict["results"][Path(dataset).stem] = {}
+                    df = pd.read_pickle(dataset)
 
-        for dataset in datasets:
-            print("Dataset: ", dataset)
-            results_dict["results"][Path(dataset).stem] = {}
-            df = pd.read_pickle(dataset)
+                    # allow variation in datasets
+                    sample_size = random.randint(25, 75)/100
+                    sample = pd.DataFrame(columns=["Target"])
+                    while sample["Target"].nunique() < 2:
+                        sample = df.sample(frac=sample_size, random_state=42).reset_index(drop=True)
+                    print("Sample size: ", sample_size)
 
-            # allow variation in datasets
-            sample_size = random.randint(25, 75)/100
-            sample = pd.DataFrame(columns=["Target"])
-            while sample["Target"].nunique() < 2:
-                sample = df.sample(frac=sample_size, random_state=random.randint(0, 10000000)).reset_index(drop=True)
-            print("Sample size: ", sample_size)
+                    X = sample.drop(columns=["Target"]).values
+                    y = sample["Target"].values
 
-            X = sample.drop(columns=["Target"]).values
-            y = sample["Target"].values
+                    # allow for different preprocessing steps
+                    for run_preprocess in run_preprocessing:
+                        print("Preprocessing: ", run_preprocess)
+                        if run_preprocess == "feature selection l1":
+                            X = preprocessing[run_preprocess].fit_transform(X, y)
+                        else:
+                            X = preprocessing[run_preprocess].fit_transform(X)
 
-            # allow for different preprocessing steps
-            for run_preprocess in run_preprocessing:
-                print("Preprocessing: ", run_preprocess)
-                if run_preprocess == "feature selection l1":
-                    X = preprocessing[run_preprocess].fit_transform(X, y)
-                else:
-                    X = preprocessing[run_preprocess].fit_transform(X)
+                    train_X, test_X, train_y, test_y = train_test_split(X, y, test_size=random.randint(10, 50)/100, stratify= y, random_state=42)
 
-            train_X, test_X, train_y, test_y = train_test_split(X, y, test_size=random.randint(10, 50)/100, random_state=42)
+                    # allow for different resampling steps
+                    for run_resample in run_resampling:
+                        if resampling[Path(dataset).stem][run_resample]:
+                            print("Resampling: ", run_resample)
+                            if run_resample != "outlier removal iqr":
+                                if train_y.sum() / (len(train_y) - train_y.sum()) < resampling[Path(dataset).stem][run_resample].sampling_strategy:
+                                    train_X, train_y = resampling[Path(dataset).stem][run_resample].fit_resample(train_X, train_y)
+                            else:
+                                train_X, train_y = resampling[Path(dataset).stem][run_resample].fit_resample(train_X, train_y)
 
-            # allow for different resampling steps
-            for run_resample in run_resampling:
-                if resampling[Path(dataset).stem][run_resample]:
-                    print("Resampling: ", run_resample)
-                    if run_resample != "outlier removal iqr":
-                        if train_y.sum() / (len(train_y) - train_y.sum()) < resampling[Path(dataset).stem][run_resample].sampling_strategy:
-                            train_X, train_y = resampling[Path(dataset).stem][run_resample].fit_resample(train_X, train_y)
-                    else:
-                        train_X, train_y = resampling[Path(dataset).stem][run_resample].fit_resample(train_X, train_y)
+                    if not sum(train_y) > 0:
+                        print("No positive class in training data")
+                        continue
 
-            if not sum(train_y) > 0:
-                print("No positive class in training data")
-                continue
+                    # allow for different models and metrics
+                    for run_model in run_models:
+                        results_dict["results"][Path(dataset).stem][run_model] = {}
+                        print("Model: ", run_model)
+                        run_model_init = models[run_model]
+                        run_model_init.fit(train_X, train_y)
+                        predictions = run_model_init.predict(test_X)
 
-            # allow for different models and metrics
-            for run_model in run_models:
-                results_dict["results"][Path(dataset).stem][run_model] = {}
-                print("Model: ", run_model)
-                run_model_init = models[run_model]
-                run_model_init.fit(train_X, train_y)
-                predictions = run_model_init.predict(test_X)
+                        for run_metric in run_metrics:
+                            print("Metric: ", run_metric)
+                            if not run_metric in ["roc_auc", "pr_rc_auc"]:
+                                predictions = (pd.Series(predictions) > 0.5).astype(int).values
 
-                for run_metric in run_metrics:
-                    print("Metric: ", run_metric)
-                    if not run_metric in ["roc_auc", "pr_rc_auc"]:
-                        predictions = (pd.Series(predictions) > 0.5).astype(int).values
+                            if run_metric == "fbeta":
+                                score = metrics[run_metric](test_y, predictions, beta= 0.5)
+                            else:
+                                score = metrics[run_metric](test_y, predictions)
 
-                    if run_metric == "fbeta":
-                        score = metrics[run_metric](test_y, predictions, beta= 0.5)
-                    else:
-                        score = metrics[run_metric](test_y, predictions)
+                            print(score)
+                            results_dict["results"][Path(dataset).stem][run_model][run_metric] = float(score)
 
-                    print(score)
-                    results_dict["results"][Path(dataset).stem][run_model][run_metric] = score
+                    # save additional configuration data
+                    results_dict["config"]["target_dataset"] = dataset_type
+                    results_dict["config"]["sample_pct"] = sample_size
 
-        with open(f"./output/papers/researcher_{i}.json", "w") as f:
-            f.write(str(results_dict))
+                    with open(f"./output/papers/{dataset_type}/researcher_{i}_{j}.json", "w") as f:
+                        f.write(str(results_dict))
+        else:
+            time.sleep(0.1)

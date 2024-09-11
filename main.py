@@ -120,7 +120,8 @@ def calculateElo():
                 temp_df = temp_df.astype(float)
                 temp_df_dict = temp_df[temp_metadata["selected_metric"]].to_dict()
                 temp_df_dict = itertools.combinations([(key, temp_df_dict[key]) for key in temp_df_dict], r=2)
-                temp_df_dict = [(comp[0][0], comp[1][0], comp[0][0]) if comp[0][1] > comp[1][1] else (comp[0][0], comp[1][0], None) if comp[0][1] >= comp[1][1] else (comp[0][0], comp[1][0], comp[1][0]) for comp in temp_df_dict]
+                temp_df_dict = [(comp[0][0], comp[1][0], comp[0][0]) if comp[0][1] > comp[1][1] else (comp[0][0], comp[1][0], None)
+                if comp[0][1] >= comp[1][1] else (comp[0][0], comp[1][0], comp[1][0]) for comp in temp_df_dict]
                 if temp_metadata["paper_confidence"]:
                     paper_confidence = temp_metadata["paper_confidence"]
                 else:
@@ -161,7 +162,8 @@ def calculateElo():
         blob.upload_from_filename(temp_xlsx)
         file_url = blob.generate_signed_url(datetime.timedelta(seconds= 600), method= "GET")
         os.remove(temp_xlsx)
-        return render_template("results.html", results= cv_ranking.to_dict('records'), ranking_file= file_url, failed_files= failed_files)
+        return render_template("results.html", results= cv_ranking.to_dict('records'),
+                               ranking_file= file_url, failed_files= failed_files)
     else:
         abort(422)
 
